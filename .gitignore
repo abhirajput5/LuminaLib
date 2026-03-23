@@ -1,0 +1,83 @@
+# =========================
+# PYTHON BASICS
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# =========================
+# LOGS & RUNTIME FILES
+# =========================
+*.log
+logs/
+*.out
+*.err
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# =========================
+# DATABASE
+# =========================
+*.sqlite3
+*.db
+
+# =========================
+# TEST / COVERAGE
+# =========================
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# =========================
+# IDE / EDITOR
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# OS FILES
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# DOCKER
+# =========================
+# Docker override files (local dev only)
+docker-compose.override.yml
+
+# Docker volumes (if mapped locally)
+docker_data/
+*.tar
+
+# =========================
+# CACHE / TEMP
+# =========================
+.cache/
+tmp/
+temp/
+
+# =========================
+# TYPE CHECKERS
+# =========================
+.mypy_cache/
+.pyre/
+.pytype/
+ollama_data/

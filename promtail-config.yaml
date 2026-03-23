@@ -1,0 +1,164 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0  # disable gRPC (not needed)
+
+positions:
+  filename: /tmp/positions.yaml
+  # Tracks how much of each log file has been read
+  # Prevents duplicate logs after restart
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+  # Loki endpoint where logs are sent
+
+scrape_configs:
+
+  # ============================================================
+  # Backend Logs
+  # ============================================================
+  - job_name: backend-logs
+
+    static_configs:
+      - targets:
+          - localhost  # required but not used meaningfully
+        labels:
+          job: backend
+          service: backend        # low-cardinality label (GOOD)
+          __path__: /logs/backend/*.log  # log file path
+
+    pipeline_stages:
+      # Pipeline = parse → transform → label → (filter) → output
+
+      # -------------------------
+      # 1. Parse JSON log line
+      # -------------------------
+      - json:
+          expressions:
+            timestamp: timestamp
+            level: level
+            logger: logger
+            message: message
+            service: service
+            request_id: request_id
+            exception: exception
+      # Extracts fields from JSON into internal variables
+
+      # -------------------------
+      # 2. Transform timestamp
+      # -------------------------
+      - timestamp:
+          source: timestamp
+          format: "2006-01-02 15:04:05,000"
+      # Overrides log timestamp using your app timestamp
+
+      # -------------------------
+      # 3. Format exception
+      # -------------------------
+      - template:
+          source: exception
+          template: '{{ Replace .exception "\\n" "\n" -1 }}'
+      # Converts "\n" into real new lines for readable stacktrace
+
+      # -------------------------
+      # 4. Combine message + exception
+      # -------------------------
+      - template:
+          source: message
+          template: |
+            [{{ .level }}] {{ .logger }}
+            Request ID: {{ .request_id }}
+            {{ if .message }}Message: {{ .message }}{{ end }}
+            {{ if .exception }}Exception:\n{{ .exception }}{{ end }}
+      # Final message will include stacktrace if present
+
+      # -------------------------
+      # 5. Labels (indexed fields)
+      # -------------------------
+      - labels:
+          level:
+          service:
+      # Labels are indexed in Loki → fast filtering
+      # Only use LOW cardinality fields here
+
+      # -------------------------
+      # 6. Optional filter
+      # -------------------------
+      # - match:
+      #     selector: '{level!="ERROR"}'
+      #     action: drop
+      # Keeps only ERROR logs (disabled by default)
+
+      # -------------------------
+      # 7. Output (final log line)
+      # -------------------------
+      - output:
+          source: message
+      # What Grafana displays as log line
+
+
+  # ============================================================
+  # Celery Logs
+  # ============================================================
+  - job_name: celery-logs
+
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: celery
+          service: celery          # differentiate from backend
+          __path__: /logs/celery/*.log
+
+    pipeline_stages:
+      # Same pipeline as backend for consistency
+
+      # -------------------------
+      # 1. Parse JSON
+      # -------------------------
+      - json:
+          expressions:
+            timestamp: timestamp
+            level: level
+            logger: logger
+            message: message
+            service: service
+            request_id: request_id
+            exception: exception
+
+      # -------------------------
+      # 2. Transform timestamp
+      # -------------------------
+      - timestamp:
+          source: timestamp
+          format: "2006-01-02 15:04:05,000"
+
+      # -------------------------
+      # 3. Format exception
+      # -------------------------
+      - template:
+          source: exception
+          template: '{{ Replace .exception "\\n" "\n" -1 }}'
+
+      # -------------------------
+      # 4. Combine message + exception
+      # -------------------------
+      - template:
+          source: message
+          template: |
+            [{{ .level }}] {{ .logger }}
+            Request ID: {{ .request_id }}
+            {{ if .message }}Message: {{ .message }}{{ end }}
+            {{ if .exception }}Exception:\n{{ .exception }}{{ end }}
+
+      # -------------------------
+      # 5. Labels
+      # -------------------------
+      - labels:
+          level:
+          service:
+
+      # -------------------------
+      # 6. Output
+      # -------------------------
+      - output:
+          source: message

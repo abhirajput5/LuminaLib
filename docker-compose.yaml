@@ -1,0 +1,209 @@
+services:
+  # ============================
+  # 🐘 POSTGRES DATABASE
+  # ============================
+  db:
+    image: postgres:16
+    container_name: lumina-postgres-db
+    restart: always
+    # env_file:
+    #   - ./.env.docker
+    environment:
+      - POSTGRES_USER=lumina_user
+      - POSTGRES_PASSWORD=lumina_superuser_password
+      - POSTGRES_DB=lumina_db
+    volumes:
+      - ./docker_data/lumina-postgres:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - lumina-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lumina_user -d lumina_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    mem_limit: "512m"
+    cpus: "1.0"
+
+  # ============================
+  # 🧭 PGADMIN (GUI FOR POSTGRES)
+  # ============================
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: lumina-pgadmin
+    restart: always
+    # env_file:
+    #   - ./env.docker
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=lumina@example.com
+      - PGADMIN_DEFAULT_PASSWORD=lumina_pgadmin_password
+    ports:
+      - "5050:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - lumina-network
+    volumes:
+      - ./docker_data/pgadmin-data:/var/lib/pgadmin
+    mem_limit: "512m"
+    cpus: "0.5"
+
+  # ============================
+  # 🧠 FASTAPI BACKEND
+  # ============================
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.fastapi
+    container_name: lumina-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/code
+      - ./logs/backend:/logs
+    env_file:
+      - ./backend/.env
+    depends_on:
+      db:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - lumina-network
+    mem_limit: "512m"
+    cpus: "0.50"
+
+  # ============================
+  # 📦 MINIO (OBJECT STORAGE)
+  # ============================
+  minio:
+    image: minio/minio:latest
+    container_name: lumina-minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin123
+    volumes:
+      - ./docker_data/minio:/data
+    ports:
+      - "9000:9000"   # API
+      - "9001:9001"   # Web UI (console)
+    networks:
+      - lumina-network
+    mem_limit: "512m"
+    cpus: "0.5"
+
+  # ======================================
+  # 🧹 REDIS Broker For Celery
+  # ======================================
+  redis:
+    image: redis:7
+    container_name: lumina-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - lumina-network
+
+  # ======================================
+  # 🧹 CELERY WORKER (FOR BACKGROUND TASKS
+  # ======================================
+  celery_worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.celery
+    container_name: lumina-celery-worker
+    volumes:
+      - ./backend:/code
+      - ./logs/celery:/logs
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - redis
+      - db
+    networks:
+      - lumina-network
+  # ======================================
+  # 🧹 FLOWER
+  # ======================================
+  flower:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.flower
+    container_name: lumina-flower
+    volumes:
+      - ./backend:/code
+    ports:
+      - "5555:5555"
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - celery_worker
+    networks:
+      - lumina-network
+    mem_limit: "512m"
+    cpus: "0.5"
+
+  # ======================================
+  # 📊 GRAFANA LOKI (LOG AGGREGATION
+  # ======================================)
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - lumina-network
+
+  # ======================================
+  # 📊 GRAFANA PROMTAIL (LOG SHIPPER)
+  # ======================================
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: promtail
+    volumes:
+      - ./promtail-config.yaml:/etc/promtail/config.yaml
+      - ./logs:/logs   # 👈 IMPORTANT: mount your logs directory
+    command: -config.file=/etc/promtail/config.yaml
+    depends_on:
+      - loki
+    networks:
+      - lumina-network
+
+  # ======================================
+  # 📊 GRAFANA
+  # ======================================
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - loki
+    networks:
+      - lumina-network
+
+  # ======================================
+  # 🧠 OLLAMA (LLM MANAGEMENT)
+  # ======================================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: lumina-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./ollama_data:/root/.ollama
+      - ./start-ollama.sh:/start-ollama.sh
+    entrypoint: ["/bin/sh", "/start-ollama.sh"]
+    networks:
+      - lumina-network
+
+networks:
+  lumina-network:
+    driver: bridge

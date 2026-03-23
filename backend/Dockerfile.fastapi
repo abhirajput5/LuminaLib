@@ -1,0 +1,20 @@
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /code
+
+# Install dependencies first
+COPY backend/requirements.txt .
+
+RUN python -m pip install --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
+
+# Copy app code (actual code will be overridden by volume for hot reload)
+COPY backend ./code
+
+# Expose FastAPI port
+EXPOSE 8000
+
+# Use reload mode for local development
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
