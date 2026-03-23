@@ -125,9 +125,93 @@ docker compose up --build
 
 ### 4. Access services
 
-- FastAPI: [http://localhost:8000](http://localhost:8000)
-- MinIO Console: [http://localhost:9001](http://localhost:9001)
-- Ollama: [http://localhost:11434](http://localhost:11434)
+Here’s a clean, production-style version of your **“Access services”** section with endpoints + credentials added:
+
+---
+
+### 4. Access Services
+
+#### 🚀 Application & Core APIs
+
+- **FastAPI Backend**
+  [http://localhost:8000](http://localhost:8000)
+
+- **Ollama (LLM API)**
+  [http://localhost:11434](http://localhost:11434)
+
+---
+
+#### 🗄️ Database & Admin
+
+- **PostgreSQL**
+  - Host: `localhost`
+  - Port: `5432`
+  - Database: `lumina_db`
+  - User: `lumina_user`
+  - Password: `lumina_superuser_password`
+
+- **PgAdmin (DB GUI)**
+  [http://localhost:5050](http://localhost:5050)
+  - Email: `lumina@example.com`
+  - Password: `lumina_pgadmin_password`
+
+---
+
+#### 📦 Object Storage
+
+- **MinIO API**
+  [http://localhost:9000](http://localhost:9000)
+
+- **MinIO Console (UI)**
+  [http://localhost:9001](http://localhost:9001)
+  - Username: `minioadmin`
+  - Password: `minioadmin123`
+
+---
+
+#### ⚡ Background Processing
+
+- **Redis (Broker)**
+  - Host: `localhost`
+  - Port: `6379`
+
+- **Celery Worker**
+  - Runs internally (no direct UI)
+
+- **Flower (Celery Monitoring UI)**
+  [http://localhost:5555](http://localhost:5555)
+
+---
+
+#### 📊 Observability & Logging
+
+- **Grafana Dashboard**
+  [http://localhost:3000](http://localhost:3000)
+  - Username: `admin`
+  - Password: `admin`
+
+- **Loki (Log Aggregation API)**
+  [http://localhost:3100](http://localhost:3100)
+
+- **Promtail (Log Shipper)**
+  - Runs internally (no UI)
+
+---
+
+### Why this structure matters (think like a system designer)
+
+- You access APIs → FastAPI / Ollama
+- You debug DB → PgAdmin
+- You track async jobs → Flower
+- You monitor system → Grafana
+- You store files → MinIO
+
+- **Data layer** → PostgreSQL + MinIO
+- **Compute layer** → FastAPI + Celery
+- **Messaging layer** → Redis
+- **AI layer** → Ollama
+- **Observability layer** → Loki + Grafana
+- **Control layer (human interface)** → PgAdmin, Flower, Grafana
 
 ---
 
